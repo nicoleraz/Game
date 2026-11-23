@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Number Guessing Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #ffd3e6;
+    --card: #fff1f7;
+    --cell: #ffffff;
+    --line: #f6a9cb;
+    --text: #5b1038;
+    --muted: #a8537f;
+    --accent: #ff4f9a;
+    --accent-dark: #c9226f;
+    --win: #14925f;
+    --lose: #d6284a;
+    --radius: 16px;
+    --display: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
+    --body: "DM Sans", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    min-height: 100vh;
+    background: radial-gradient(circle at 15% 10%, #fff0f7 0, transparent 45%), radial-gradient(circle at 90% 90%, #ffb8d6 0, transparent 50%), var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    line-height: 1.5;
+    display: grid;
+    place-items: start center;
+    padding: 24px 16px 48px;
+  }
+  main { width: 100%; max-width: 560px; }
+
+  /* Header + coin purse */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(2rem, 7vw, 3rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .tagline { color: var(--muted); font-size: .95rem; margin-top: 8px; max-width: 28ch; }
+  .purse { text-align: right; }
+  .purse-label { color: var(--muted); font-size: .85rem; }
+  .coins {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 2.4rem;
+    color: var(--accent-dark);
+    line-height: 1;
+  }
+  .coins.pop { animation: pop .35s ease; }
+  @keyframes pop { 50% { transform: scale(1.15); } }
+
+  /* Table panel */
+  .panel {
+    background: var(--card);
+    border-radius: 24px;
+    padding: 22px;
+    border: 3px solid var(--line);
+    box-shadow: 0 10px 0 #f6a9cb66, 0 18px 30px #c9226f22;
+  }
+  fieldset { border: 0; padding: 0; margin: 0 0 20px; }
+  legend {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+    padding: 0;
+  }
+
+  /* Number pickers: 0-5 like faces of a die */
+  .picker { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .picker input { position: absolute; opacity: 0; pointer-events: none; }
+  .picker label {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    background: var(--cell);
+    border: 2px solid var(--line);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.6rem;
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .picker label:hover { border-color: var(--accent); }
+  .picker input:checked + label { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .picker input:focus-visible + label { outline: 3px solid var(--accent-dark); outline-offset: 2px; }
+
+  /* Bet */
+  .bet-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  #bet {
+    width: 120px;
+    padding: 12px 14px;
+    font: 700 1.2rem var(--display);
+    color: var(--text);
+    background: var(--cell);
+    border: 2px solid var(--line);
+    border-radius: var(--radius);
+  }
+  .chip {
+    padding: 10px 14px;
+    font: 500 .95rem var(--body);
+    color: var(--text);
+    background: #fff8;
+    border: 2px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .chip:hover { border-color: var(--accent); background: #fff; }
+  #bet:focus-visible, .chip:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent-dark); outline-offset: 2px; }
+
+  .btn {
+    width: 100%;
+    margin-top: 4px;
+    padding: 16px;
+    font: 800 1.2rem var(--display);
+    color: #fff;
+    background: var(--accent);
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 5px 0 var(--accent-dark);
+    transition: transform .1s, box-shadow .1s;
+  }
+  .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--accent-dark); }
+  .btn[disabled] { opacity: .5; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: var(--accent-dark); box-shadow: 0 5px 0 var(--line); }
+
+  .error { color: var(--lose); min-height: 1.5em; margin: 8px 0 0; font-size: .95rem; }
+
+  /* Result: two drawn numbers */
+  .result { margin-top: 20px; display: none; }
+  .result.show { display: block; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .tile {
+    text-align: center;
+    padding: 16px 8px;
+    border-radius: var(--radius);
+    background: var(--cell);
+    border: 3px solid var(--line);
+    animation: flip .5s ease both;
+  }
+  .tile:nth-child(2) { animation-delay: .15s; }
+  @keyframes flip { from { transform: rotateX(90deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  .tile.hit { border-color: var(--win); }
+  .tile.miss { border-color: var(--lose); }
+  .tile-label { color: var(--muted); font-size: .85rem; }
+  .tile-num { font: 800 3.4rem/1.1 var(--display); }
+  .tile-guess { font-size: .9rem; }
+  .tile.hit .tile-guess { color: var(--win); }
+  .tile.miss .tile-guess { color: var(--lose); }
+
+  .outcome {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border-radius: var(--radius);
+    font-weight: 700;
+    background: var(--cell);
+    border: 2px solid var(--line);
+  }
+  .outcome.win { color: var(--win); }
+  .outcome.lose { color: var(--lose); }
+
+  /* Rules */
+  .rules { margin-top: 28px; color: var(--muted); font-size: .95rem; }
+  .rules h2 { font: 700 1.1rem var(--display); color: var(--text); margin-bottom: 8px; }
+  .rules ul { padding-left: 20px; }
+  footer { margin-top: 28px; color: var(--muted); font-size: .85rem; }
+
+  @media (max-width: 420px) {
+    header { flex-direction: column; align-items: flex-start; }
+    .purse { text-align: left; }
+    .picker label { font-size: 1.3rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Number Guessing Game 🌸</h1>
+      <p class="tagline">Guess two numbers from 0 to 5 and bet your coins. Good luck! 💖</p>
+    </div>
+    <div class="purse" aria-live="polite">
+      <div class="purse-label">Your coins</div>
+      <div class="coins" id="coins">1000</div>
+    </div>
+  </header>
+
+  <section class="panel" aria-label="Game table">
+    <fieldset>
+      <legend>Guess number 1</legend>
+      <div class="picker" id="pick1"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Guess number 2</legend>
+      <div class="picker" id="pick2"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Your bet</legend>
+      <div class="bet-row">
+        <input id="bet" type="number" min="1" value="100" inputmode="numeric" aria-label="Bet amount">
+        <button class="chip" type="button" data-bet="0.25">25%</button>
+        <button class="chip" type="button" data-bet="0.5">Half</button>
+        <button class="chip" type="button" data-bet="1">All in</button>
+      </div>
+    </fieldset>
+
+    <button class="btn" id="play" type="button">Place bet</button>
+    <p class="error" id="error" role="alert"></p>
+
+    <div class="result" id="result" aria-live="polite">
+      <div class="tiles">
+        <div class="tile" id="tile1"></div>
+        <div class="tile" id="tile2"></div>
+      </div>
+      <div class="outcome" id="outcome"></div>
+      <button class="btn secondary" id="restart" type="button" hidden style="margin-top:16px">Start over with 1000 coins</button>
+    </div>
+  </section>
+
+  <section class="rules">
+    <h2>How to win</h2>
+    <ul>
+      <li>Both guesses correct: win 2x your bet.</li>
+      <li>One guess correct: win 1x your bet.</li>
+      <li>No guess correct: lose your bet.</li>
+    </ul>
+  </section>
+
+</main>
+
+<script>
+  // Same rules as main.cpp, written in JavaScript.
+  let coins = 1000;
+  const $ = (id) => document.getElementById(id);
+
+  // Build the 0-5 pickers
+  ["pick1", "pick2"].forEach((id, i) => {
+    $(id).innerHTML = [0, 1, 2, 3, 4, 5].map((n) =>
+      `<input type="radio" name="g${i + 1}" id="g${i + 1}-${n}" value="${n}">` +
+      `<label for="g${i + 1}-${n}">${n}</label>`).join("");
+  });
+
+  function setCoins(value) {
+    coins = value;
+    const el = $("coins");
+    el.textContent = coins;
+    el.classList.remove("pop");
+    void el.offsetWidth;
+    el.classList.add("pop");
+  }
+
+  function tile(el, label, actual, guess) {
+    const hit = actual === guess;
+    el.className = "tile " + (hit ? "hit" : "miss");
+    el.innerHTML =
+      `<div class="tile-label">${label}</div>` +
+      `<div class="tile-num">${actual}</div>` +
+      `<div class="tile-guess">You guessed ${guess}: ${hit ? "correct" : "wrong"}</div>`;
+    return hit ? 1 : 0;
+  }
+
+  document.querySelectorAll("[data-bet]").forEach((b) =>
+    b.addEventListener("click", () => {
+      $("bet").value = Math.max(1, Math.floor(coins * parseFloat(b.dataset.bet)));
+    }));
+
+  $("play").addEventListener("click", () => {
+    const g1 = document.querySelector('input[name="g1"]:checked');
+    const g2 = document.querySelector('input[name="g2"]:checked');
+    const bet = parseInt($("bet").value, 10);
+    const err = $("error");
+
+    if (!g1 || !g2) { err.textContent = "Pick a number for both guesses."; return; }
+    if (!(bet >= 1 && bet <= coins)) { err.textContent = `Enter a bet from 1 to ${coins}.`; return; }
+    err.textContent = "";
+
+    const r1 = Math.floor(Math.random() * 6);
+    const r2 = Math.floor(Math.random() * 6);
+    const matches =
+      tile($("tile1"), "Random number 1", r1, +g1.value) +
+      tile($("tile2"), "Random number 2", r2, +g2.value);
+
+    let change, text, cls;
+    if (matches === 2) { change = bet * 2; text = `Both correct! You win ${change} coins.`; cls = "win"; }
+    else if (matches === 1) { change = bet; text = `One correct. You win ${change} coins.`; cls = "win"; }
+    else { change = -bet; text = `No matches. You lose ${bet} coins.`; cls = "lose"; }
+
+    setCoins(coins + change);
+    $("outcome").className = "outcome " + cls;
+    $("outcome").textContent = text;
+    $("result").classList.add("show");
+
+    if (coins <= 0) {
+      $("outcome").textContent += " You ran out of coins!";
+      $("play").disabled = true;
+      $("restart").hidden = false;
+    } else {
+      $("bet").value = Math.min(parseInt($("bet").value, 10), coins);
+    }
+  });
+
+  $("restart").addEventListener("click", () => {
+    setCoins(1000);
+    $("play").disabled = false;
+    $("restart").hidden = true;
+    $("result").classList.remove("show");
+    $("bet").value = 100;
+    document.querySelectorAll('input[type="radio"]').forEach((r) => (r.checked = false));
+  });
+</script>
+</body>
+</html>
